@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>阅栈 · 电子书阅读器</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:#1a1a1f; color:#e8e6e3; font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif; height:100vh; overflow:hidden; display:flex; flex-direction:column; }
+button { cursor:pointer; }
+/* ===== 书架视图 ===== */
+#library { display:flex; flex:1; min-height:0; }
+.titlebar { display:flex; align-items:center; gap:8px; padding:10px 16px; border-bottom:0.5px solid #3a3a42; background:#1e1e24; flex-shrink:0; }
+.dot { width:11px; height:11px; border-radius:50%; }
+.titlebar .name { margin-left:10px; font-size:13px; color:#8a8886; }
+.layout { display:flex; flex:1; min-height:0; }
+.sidebar { width:210px; border-right:0.5px solid #3a3a42; padding:20px 12px; background:#1f1f26; flex-shrink:0; overflow-y:auto; }
+.sidebar h3 { font-size:12px; color:#8a8886; font-weight:400; margin:0 8px 12px; letter-spacing:1px; }
+.nav-item { display:flex; align-items:center; gap:10px; padding:9px 12px; border-radius:8px; font-size:13px; color:#c9c7c4; margin-bottom:2px; cursor:pointer; user-select:none; }
+.nav-item:hover { background:#2a2a32; }
+.nav-item.active { background:#31313a; color:#f5f4f2; }
+.nav-item .cnt { margin-left:auto; font-size:11px; color:#7a7a80; }
+.swatch { width:8px; height:8px; border-radius:3px; flex-shrink:0; }
+.add-cat { color:#7a7a80; }
+.add-cat:hover { color:#c9c7c4; }
+.del-cat { margin-left:4px; opacity:0; font-size:12px; color:#7a7a80; }
+.nav-item:hover .del-cat { opacity:1; }
+.main { flex:1; padding:24px 28px; min-width:0; overflow-y:auto; }
+.head { display:flex; align-items:center; justify-content:space-between; margin-bottom:18px; gap:16px; }
+.head h2 { font-size:16px; font-weight:500; white-space:nowrap; }
+.search { display:flex; align-items:center; gap:8px; background:#1f1f26; border:0.5px solid #3a3a42; border-radius:8px; padding:7px 12px; width:260px; flex-shrink:0; }
+.search input { background:transparent; border:none; outline:none; color:#e8e6e3; font-size:12px; width:100%; }
+.head-actions { display:flex; gap:10px; }
+.btn { padding:6px 14px; border-radius:8px; border:0.5px solid #3a3a42; font-size:12px; color:#c9c7c4; background:transparent; }
+.btn.primary { background:#4a5aa8; border-color:#4a5aa8; color:#fff; }
+.btn:hover { border-color:#5a5a64; }
+.filters { display:flex; gap:8px; margin-bottom:20px; flex-wrap:wrap; }
+.chip { padding:5px 14px; border-radius:14px; font-size:12px; border:0.5px solid #3a3a42; color:#a5a3a0; background:transparent; }
+.chip.on { background:#4a5aa8; border-color:#4a5aa8; color:#fff; }
+.grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:18px; padding-bottom:30px; }
+.book { background:#2a2a32; border:0.5px solid #3a3a42; border-radius:12px; padding:14px; cursor:pointer; position:relative; transition:border-color .15s; }
+.book:hover { border-color:#4a5aa8; }
+.cover { height:130px; border-radius:8px; display:flex; align-items:flex-end; padding:12px; font-size:13px; font-weight:500; color:#fff; line-height:1.4; margin-bottom:10px; word-break:break-all; }
+.book p.t { font-size:13px; color:#e8e6e3; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.book p.a { font-size:11px; color:#8a8886; margin-top:4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.prog { margin-top:8px; height:4px; background:#3a3a42; border-radius:2px; overflow:hidden; }
+.prog i { display:block; height:100%; background:#4a5aa8; border-radius:2px; }
+.prog-l { font-size:11px; color:#7a7a80; margin-top:5px; }
+.bdel { position:absolute; top:8px; right:8px; background:rgba(0,0,0,.45); border:none; color:#c9c7c4; width:22px; height:22px; border-radius:6px; font-size:12px; opacity:0; transition:opacity .15s; }
+.book:hover .bdel { opacity:1; }
+.empty { text-align:center; color:#7a7a80; padding:60px 0; font-size:13px; }
+/* ===== 阅读视图 ===== */
+#reader { display:none; flex-direction:column; flex:1; min-height:0; background:#232329; }
+.rtop { display:flex; align-items:center; gap:12px; padding:12px 20px; border-bottom:0.5px solid #3a3a42; background:#1e1e24; flex-shrink:0; }
+.rtop .rt { font-size:14px; color:#f5f4f2; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.rwrap { flex:1; min-height:0; overflow-y:auto; display:flex; justify-content:center; }
+.rpage { max-width:680px; width:100%; padding:40px 32px 80px; line-height:2; white-space:pre-wrap; word-break:break-word; }
+/* 主题 */
+body.theme-night { background:#1a1a1f; }
+body.theme-night .rpage { color:#c9c7c4; background:#232329; }
+body.theme-sepia { background:#f4ecd8; }
+body.theme-sepia .rtop { background:#e8ddc0; border-color:#d8c9a3; }
+body.theme-sepia .rtop .rt { color:#5b4a32; }
+body.theme-sepia .rpage { color:#5b4a32; background:#f4ecd8; }
+body.theme-sepia .btn { color:#5b4a32; border-color:#c9b98f; }
+body.theme-sepia .btn.primary { background:#a07b3a; border-color:#a07b3a; color:#fff; }
+body.theme-green { background:#c7e2c4; }
+body.theme-green .rtop { background:#b5d6b2; border-color:#9cc39a; }
+body.theme-green .rtop .rt { color:#2e4a2e; }
+body.theme-green .rpage { color:#2e4a2e; background:#c7e2c4; }
+body.theme-green .btn { color:#2e4a2e; border-color:#8ab48a; }
+body.theme-green .btn.primary { background:#3b6d11; border-color:#3b6d11; color:#fff; }
+/* ===== 模态框 ===== */
+.modal-bg { position:fixed; inset:0; background:rgba(0,0,0,.55); display:none; align-items:center; justify-content:center; z-index:50; }
+.modal-bg.show { display:flex; }
+.modal { background:#2a2a32; border:0.5px solid #3a3a42; border-radius:14px; padding:24px; width:360px; }
+.modal h3 { font-size:15px; font-weight:500; margin-bottom:18px; }
+.modal label { display:block; font-size:12px; color:#8a8886; margin:12px 0 6px; }
+.modal input, .modal select { width:100%; background:#1f1f26; border:0.5px solid #3a3a42; border-radius:8px; padding:8px 12px; color:#e8e6e3; font-size:13px; outline:none; }
+.modal .m-actions { display:flex; justify-content:flex-end; gap:10px; margin-top:20px; }
+.dropzone { border:1px dashed #4a5aa8; border-radius:10px; padding:22px; text-align:center; font-size:12px; color:#8a8886; margin-bottom:6px; cursor:pointer; }
+.dropzone:hover { background:#2f2f3a; }
+::selection { background:#4a5aa8; color:#fff; }
+</style>
+</head>
+<body class="theme-night">
+
+<div id="library">
+  <div class="titlebar">
+    <div class="dot" style="background:#f0605c"></div>
+    <div class="dot" style="background:#f5bf4f"></div>
+    <div class="dot" style="background:#5fc86a"></div>
+    <span class="name">阅栈 YueZhan</span>
+  </div>
+  <div class="layout">
+    <div class="sidebar" id="sidebar"></div>
+    <div class="main">
+      <div class="head">
+        <h2 id="mainTitle">全部书籍</h2>
+        <div class="search">🔍 <input id="searchInput" placeholder="搜索书名 / 作者"></div>
+        <div class="head-actions">
+          <button class="btn" onclick="openCatModal()">+ 新建分类</button>
+          <button class="btn primary" onclick="openBookModal()">+ 导入书籍</button>
+        </div>
+      </div>
+      <div class="filters">
+        <button class="chip on" data-sort="added" onclick="setSort(this,'added')">最近添加</button>
+        <button class="chip" data-sort="read" onclick="setSort(this,'read')">最近阅读</button>
+        <button class="chip" data-sort="progress" onclick="setSort(this,'progress')">按进度</button>
+        <button class="chip" data-sort="done" onclick="setSort(this,'done')">已读完</button>
+      </div>
+      <div class="grid" id="bookGrid"></div>
+    </div>
+  </div>
+</div>
+
+<div id="reader">
+  <div class="rtop">
+    <button class="btn" onclick="backToLibrary()">← 书架</button>
+    <div class="rt" id="rTitle"></div>
+    <button class="btn" onclick="jump(-1)">上一页</button>
+    <span id="rPage" style="font-size:12px;color:#8a8886"></span>
+    <button class="btn" onclick="jump(1)">下一页</button>
+    <button class="btn" onclick="setFont(-1)">A-</button>
+    <button class="btn" onclick="setFont(1)">A+</button>
+    <button class="btn" data-thm="sepia" onclick="setTheme('sepia')">羊皮</button>
+    <button class="btn" data-thm="night" onclick="setTheme('night')">暗夜</button>
+    <button class="btn" data-thm="green" onclick="setTheme('green')">护眼</button>
+  </div>
+  <div class="rwrap" id="rTextWrap"><div class="rpage" id="rContent"></div></div>
+  <div class="rwrap" id="rImgWrap" style="display:none;flex-direction:column;align-items:center;padding:20px;overflow:auto;">
+    <canvas id="rCanvas" style="max-width:100%;border-radius:8px;background:#000"></canvas>
+  </div>
+</div>
+
+<div class="modal-bg" id="catModal">
+  <div class="modal">
+    <h3>新建分类</h3>
+    <label>分类名称</label>
+    <input id="catName" placeholder="例如：投资理财">
+    <label>颜色</label>
+    <select id="catColor">
+      <option value="#4a5aa8">蓝</option><option value="#0F6E56">绿</option>
+      <option value="#D85A30">橙</option><option value="#854F0B">黄</option>
+      <option value="#534AB7">紫</option><option value="#A32D2D">红</option>
+      <option value="#5F5E5A">灰</option>
+    </select>
+    <div class="m-actions">
+      <button class="btn" onclick="closeModal('catModal')">取消</button>
+      <button class="btn primary" onclick="addCategory()">创建</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="bookModal">
+  <div class="modal">
+    <h3>导入书籍（支持 .txt / .pdf / .epub）</h3>
+    <div class="dropzone" onclick="document.getElementById('fileInput').click()">点击选择 .txt / .pdf / .epub 文件<br>或直接填写书名手动录入</div>
+    <input type="file" id="fileInput" accept=".txt,.pdf,.epub" style="display:none">
+    <label>书名</label>
+    <input id="bookTitle" placeholder="书籍名称">
+    <label>作者</label>
+    <input id="bookAuthor" placeholder="作者">
+    <label>分类</label>
+    <select id="bookCat"></select>
+    <div class="m-actions">
+      <button class="btn" onclick="closeModal('bookModal')">取消</button>
+      <button class="btn primary" onclick="addBook()">入库</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/epubjs@0.3.93/dist/epub.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script>
+const DEFAULT_CATS = [
+  {id:'eco',name:'经济学',color:'#0F6E56'},
+  {id:'comm',name:'沟通表达',color:'#D85A30'},
+  {id:'psy',name:'心理学',color:'#854F0B'},
+  {id:'mgmt',name:'管理思维',color:'#534AB7'},
+  {id:'hist',name:'历史人文',color:'#A32D2D'},
+  {id:'novel',name:'小说文学',color:'#5F5E5A'},
+];
+let db = JSON.parse(localStorage.getItem('yuezhan_db') || 'null')
+  || {cats:DEFAULT_CATS, books:[], activeCat:'all', sort:'added'};
+let pendingContent = '';
+let pendingPdfBuf = null;
+let pendingPdfNumPages = 0;
+let readerState = null;
+
+function save(){ localStorage.setItem('yuezhan_db', JSON.stringify(db)); }
+
+/* ---------- 书架 ---------- */
+function catOf(id){ return db.cats.find(c=>c.id===id); }
+function catCount(cid){ return db.books.filter(b=>b.cat===cid).length; }
+
+function renderSidebar(){
+  const el = document.getElementById('sidebar');
+  const items = [['all','全部书籍','#4a5aa8'],['recent','最近阅读','#4a5aa8']]
+    .concat(db.cats.map(c=>[c.id,c.name,c.color]));
+  let html = '<h3>分类</h3>';
+  for (const [id,name,color] of items){
+    const cnt = id==='all' ? db.books.length : id==='recent' ? '' : catCount(id);
+    const del = db.cats.some(c=>c.id===id) ? `<span class="del-cat" onclick="delCat(event,'${id}')">✕</span>` : '';
+    html += `<div class="nav-item ${db.activeCat===id?'active':''}" onclick="setCat('${id}')">
+      <span class="swatch" style="background:${color}"></span>${name}
+      ${cnt!==''?`<span class="cnt">${cnt}</span>`:''}${del}</div>`;
+  }
+  html += '<div class="nav-item add-cat" onclick="openCatModal()">+ 新建分类</div><h3 style="margin-top:20px">视图</h3>';
+  html += `<div class="nav-item ${db.activeCat==='unread'?'active':''}" onclick="setCat('unread')">未读完 <span class="cnt">${db.books.filter(b=>b.progress<100).length}</span></div>`;
+  html += '<h3 style="margin-top:20px">数据</h3><div class="nav-item" onclick="exportBackup()">⬇ 导出备份</div><div class="nav-item" onclick="document.getElementById(\'backupInput\').click()">⬆ 导入备份</div><input type="file" id="backupInput" accept=".json" style="display:none" onchange="importBackup(this)">';
+  el.innerHTML = html;
+}
+
+function visibleBooks(){
+  let list = db.books.slice();
+  if (db.activeCat==='recent') list = list.filter(b=>b.lastRead).sort((a,b)=>b.lastRead-a.lastRead);
+  else if (db.activeCat==='unread') list = list.filter(b=>b.progress<100);
+  else if (db.activeCat!=='all') list = list.filter(b=>b.cat===db.activeCat);
+  const q = document.getElementById('searchInput').value.trim().toLowerCase();
+  if (q) list = list.filter(b=>b.title.toLowerCase().includes(q)||b.author.toLowerCase().includes(q));
+  if (db.activeCat!=='recent') switch(db.sort){
+    case 'read': list.sort((a,b)=>(b.lastRead||0)-(a.lastRead||0)); break;
+    case 'progress': list.sort((a,b)=>b.progress-a.progress); break;
+    case 'done': list.sort((a,b)=>(b.progress===100)-(a.progress===100)); break;
+    default: list.sort((a,b)=>b.added-a.added);
+  }
+  return list;
+}
+
+const PALETTE = ['#4a5aa8','#0F6E56','#D85A30','#854F0B','#534AB7','#A32D2D','#5F5E5A','#378ADD'];
+
+function renderGrid(){
+  const list = visibleBooks();
+  const title = db.activeCat==='all' ? '全部书籍'
+    : db.activeCat==='recent' ? '最近阅读'
+    : db.activeCat==='unread' ? '未读完'
+    : catOf(db.activeCat)?.name || '全部书籍';
+  document.getElementById('mainTitle').textContent = title + (list.length ? ` · ${list.length} 本` : '');
+  const grid = document.getElementById('bookGrid');
+  if (!list.length){ grid.innerHTML = '<div class="empty">书架空空如也，点击右上角「导入书籍」添加你的第一本书</div>'; return; }
+  grid.innerHTML = list.map((b,i)=>{
+    const c = catOf(b.cat);
+    const color = PALETTE[(b.colorSeed||0)%PALETTE.length];
+    return `<div class="book" onclick="openReader('${b.id}')">
+      <button class="bdel" onclick="delBook(event,'${b.id}')">✕</button>
+      <div class="cover" style="background:${color}">${esc(b.title)}</div>
+      <p class="t" title="${esc(b.title)}">${esc(b.title)}</p>
+      <p class="a">${esc(b.author||'佚名')}${c?' · '+c.name:''}</p>
+      <div class="prog"><i style="width:${b.progress}%"></i></div>
+      <p class="prog-l">${b.progress>=100?'已读完':(b.progress>0?'已读 '+b.progress+'%':'未开始')}</p>
+    </div>`;
+  }).join('');
+}
+
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
+
+function renderAll(){ renderSidebar(); renderGrid(); save(); }
+
+function setCat(id){ db.activeCat=id; renderAll(); }
+function setSort(btn,s){ db.sort=s; document.querySelectorAll('.chip').forEach(c=>c.classList.toggle('on',c===btn)); renderGrid(); }
+
+/* ---------- 分类管理 ---------- */
+function openCatModal(){ document.getElementById('catModal').classList.add('show'); document.getElementById('catName').focus(); }
+function addCategory(){
+  const name = document.getElementById('catName').value.trim();
+  if (!name) return;
+  const id = 'c'+Date.now();
+  db.cats.push({id, name, color:document.getElementById('catColor').value});
+  document.getElementById('catName').value='';
+  closeModal('catModal'); renderAll();
+}
+function delCat(e,id){
+  e.stopPropagation();
+  if (db.books.some(b=>b.cat===id)){ alert('该分类下还有书籍，先移走再删除'); return; }
+  db.cats = db.cats.filter(c=>c.id!==id);
+  if (db.activeCat===id) db.activeCat='all';
+  renderAll();
+}
+
+/* ---------- 书籍导入 ---------- */
+function openBookModal(){
+  const sel = document.getElementById('bookCat');
+  sel.innerHTML = db.cats.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
+  document.getElementById('bookModal').classList.add('show');
+}
+document.getElementById('fileInput').addEventListener('change', e=>{
+  const f = e.target.files[0]; if (!f) return;
+  document.querySelector('.dropzone').innerHTML = `正在解析：${esc(f.name)}……`;
+  if (/\.pdf$/i.test(f.name)){
+    extractPdf(f).then(async res=>{
+      if (res.scanned){
+        pendingPdfBuf = await f.arrayBuffer();
+        pendingPdfNumPages = res.numPages;
+        pendingContent = '';
+        document.getElementById('bookTitle').value = document.getElementById('bookTitle').value || f.name.replace(/\.(pdf|txt|epub)$/i,'');
+        document.querySelector('.dropzone').innerHTML = `已选：${esc(f.name)}（${Math.round(f.size/1024)} KB · 扫描版，将以图片模式阅读，共 ${res.numPages} 页）`;
+        return;
+      }
+      pendingContent = res.text || '（PDF 内无可提取文本）';
+      document.getElementById('bookTitle').value = document.getElementById('bookTitle').value || f.name.replace(/\.(pdf|txt|epub)$/i,'');
+      document.querySelector('.dropzone').innerHTML = `已选：${esc(f.name)}（${Math.round(f.size/1024)} KB · ${res.text.length} 字）`;
+    }).catch(err=>{
+      pendingContent='';
+      document.querySelector('.dropzone').innerHTML = 'PDF 解析失败：'+esc(err.message||err)+'<br>重新选择文件';
+    });
+  } else if (/\.epub$/i.test(f.name)){
+    extractEpub(f).then(info=>{
+      pendingContent = info.text;
+      document.getElementById('bookTitle').value = document.getElementById('bookTitle').value || (info.title || f.name.replace(/\.(pdf|txt|epub)$/i,''));
+      document.getElementById('bookAuthor').value = document.getElementById('bookAuthor').value || (info.author || '');
+      document.querySelector('.dropzone').innerHTML = `已选：${esc(f.name)}（${Math.round(f.size/1024)} KB · ${info.text.length} 字）`;
+    }).catch(err=>{
+      pendingContent='';
+      document.querySelector('.dropzone').innerHTML = 'EPUB 解析失败：'+esc(err.message||err)+'<br>重新选择文件';
+    });
+  } else {
+    const reader = new FileReader();
+    reader.onload = ()=>{
+      pendingContent = reader.result;
+      document.getElementById('bookTitle').value = document.getElementById('bookTitle').value || f.name.replace(/\.(pdf|txt|epub)$/i,'');
+      document.querySelector('.dropzone').innerHTML = `已选：${esc(f.name)}（${Math.round(f.size/1024)} KB）`;
+    };
+    reader.readAsText(f,'utf-8');
+  }
+});
+function extractEpub(file){
+  return new Promise((resolve,reject)=>{
+    if (!window.ePub) return reject(new Error('epub.js 未加载，请检查网络'));
+    try {
+      const book = window.ePub(file);
+      Promise.all([book.loaded.metadata, book.loaded.spine]).then(([meta, spine])=>{
+        const items = spine.spineItems || [];
+        let out=''; let i=0;
+        const next = ()=>{
+          if (i>=items.length){
+            out = out.replace(/<[^>]+>/g,'\n').replace(/&nbsp;/g,' ').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/\n{3,}/g,'\n\n').replace(/[ \t]+\n/g,'\n').trim();
+            return resolve({text:out, title:meta.title||'', author:(meta.creator||'')});
+          }
+          const item = items[i++];
+          item.load(book.load.bind(book)).then(doc=>{
+            out += (doc.body ? doc.body.textContent : '') + '\n';
+            document.querySelector('.dropzone').innerHTML = `解析中：章节 ${i} / ${items.length}`;
+            item.unload();
+            setTimeout(next,0);
+          }).catch(()=>setTimeout(next,0));
+        };
+        next();
+      }).catch(reject);
+    } catch(e){ reject(e); }
+  });
+}
+function extractPdf(file){
+  return new Promise((resolve,reject)=>{
+    if (!window.pdfjsLib) return reject(new Error('pdf.js 未加载，请检查网络'));
+    const reader = new FileReader();
+    reader.onload = ()=>{
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      window.pdfjsLib.getDocument({data:reader.result}).promise.then(async pdf=>{
+        let out='';
+        for (let i=1;i<=pdf.numPages;i++){
+          const page = await pdf.getPage(i);
+          const tc = await page.getTextContent();
+          out += tc.items.map(it=>it.str).join('')+'\n';
+          document.querySelector('.dropzone').innerHTML = `解析中：第 ${i} / ${pdf.numPages} 页`;
+        }
+        out = out.replace(/\n{3,}/g,'\n\n').trim();
+        const scanned = out.replace(/\s/g,'').length < pdf.numPages * 5;
+        resolve({text:out, scanned, numPages:pdf.numPages});
+      }).catch(reject);
+    };
+    reader.onerror = ()=>reject(new Error('文件读取失败'));
+    reader.readAsArrayBuffer(file);
+  });
+}
+/* ---------- IndexedDB（扫描版 PDF 存储） ---------- */
+function idb(){ return new Promise((res,rej)=>{ const r=indexedDB.open('yuezhan',1); r.onupgradeneeded=()=>r.result.createObjectStore('files'); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); }
+async function idbPut(key,val){ const d=await idb(); return new Promise((res,rej)=>{ const t=d.transaction('files','readwrite'); t.objectStore('files').put(val,key); t.oncomplete=res; t.onerror=()=>rej(t.error); }); }
+async function idbGet(key){ const d=await idb(); return new Promise((res,rej)=>{ const r=d.transaction('files').objectStore('files').get(key); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); }
+async function idbDel(key){ const d=await idb(); return new Promise((res)=>{ const t=d.transaction('files','readwrite'); t.objectStore('files').delete(key); t.oncomplete=res; }); }
+function addBook(){
+  const title = document.getElementById('bookTitle').value.trim();
+  if (!title){ alert('请填写书名'); return; }
+  const id = 'b'+Date.now();
+  const isPdfImg = !!pendingPdfBuf;
+  db.books.push({
+    id, title,
+    author:document.getElementById('bookAuthor').value.trim(),
+    cat:document.getElementById('bookCat').value,
+    content:pendingPdfBuf ? '' : (pendingContent || '（未导入正文，仅作为书架条目）'),
+    type:isPdfImg ? 'pdfimg' : 'text',
+    numPages:isPdfImg ? (pendingPdfNumPages||0) : 0,
+    progress:0, page:0, added:Date.now(), lastRead:0,
+    colorSeed:db.books.length
+  });
+  if (isPdfImg) idbPut(id, pendingPdfBuf);
+  pendingContent=''; pendingPdfBuf=null; pendingPdfNumPages=0;
+  document.getElementById('fileInput').value='';
+  document.querySelector('.dropzone').innerHTML='点击选择 .txt / .pdf / .epub 文件<br>或直接填写书名手动录入';
+  closeModal('bookModal'); renderAll();
+}
+function delBook(e,id){
+  e.stopPropagation();
+  if (!confirm('确定删除这本书？')) return;
+  db.books = db.books.filter(b=>b.id!==id);
+  idbDel(id);
+  renderAll();
+}
+
+/* ---------- 阅读器 ---------- */
+const PAGE_CHARS = 1200;
+let imgPdf = null;
+async function openReader(id){
+  const b = db.books.find(x=>x.id===id); if (!b) return;
+  document.getElementById('rTitle').textContent = b.title + ' · ' + (b.author||'佚名');
+  document.getElementById('library').style.display='none';
+  document.getElementById('reader').style.display='flex';
+  if (b.type==='pdfimg'){
+    readerState = {book:b, pages:Math.max(1,b.numPages||1), img:true};
+    document.getElementById('rTextWrap').style.display='none';
+    document.getElementById('rImgWrap').style.display='flex';
+    const buf = await idbGet(b.id);
+    if (!buf){ document.getElementById('rImgWrap').innerHTML='<div class="empty">PDF 数据丢失（浏览器清理了 IndexedDB），请重新导入</div>'; return; }
+    window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    imgPdf = await window.pdfjsLib.getDocument({data:buf}).promise;
+    readerState.pages = imgPdf.numPages;
+    gotoPage(Math.min(b.page||0, imgPdf.numPages-1));
+  } else {
+    imgPdf = null;
+    document.getElementById('rImgWrap').style.display='none';
+    document.getElementById('rTextWrap').style.display='flex';
+    readerState = {book:b, pages:Math.max(1,Math.ceil(b.content.length/PAGE_CHARS))};
+    gotoPage(Math.min(b.page, readerState.pages-1));
+  }
+}
+async function gotoPage(p){
+  const {book,pages,img} = readerState;
+  readerState.page = Math.max(0, Math.min(pages-1, p));
+  const b = book;
+  b.page = readerState.page;
+  b.progress = Math.round(((readerState.page+1)/pages)*100);
+  b.lastRead = Date.now();
+  if (img){
+    document.getElementById('rPage').textContent = `${readerState.page+1} / ${pages}（图片模式）`;
+    const page = await imgPdf.getPage(readerState.page+1);
+    const vp = page.getViewport({scale:1.5});
+    const canvas = document.getElementById('rCanvas');
+    canvas.width = vp.width; canvas.height = vp.height;
+    await page.render({canvasContext:canvas.getContext('2d'), viewport:vp}).promise;
+  } else {
+    document.getElementById('rContent').textContent = b.content.slice(readerState.page*PAGE_CHARS,(readerState.page+1)*PAGE_CHARS);
+    document.getElementById('rPage').textContent = `${readerState.page+1} / ${pages}`;
+  }
+  save();
+}
+function jump(d){ if(!readerState) return; gotoPage(readerState.page+d); }
+document.addEventListener('keydown', e=>{
+  if (document.getElementById('reader').style.display==='flex'){
+    if (e.key==='ArrowLeft') jump(-1);
+    if (e.key==='ArrowRight') jump(1);
+    if (e.key==='Escape') backToLibrary();
+  }
+});
+function backToLibrary(){
+  document.getElementById('reader').style.display='none';
+  document.getElementById('library').style.display='flex';
+  readerState=null; renderAll();
+}
+let fontSize=17;
+function setFont(d){
+  fontSize=Math.max(13,Math.min(26,fontSize+d));
+  document.querySelector('.rpage').style.fontSize=fontSize+'px';
+}
+function setTheme(t){
+  document.body.className='theme-'+t;
+  localStorage.setItem('yuezhan_theme',t);
+}
+
+/* ---------- 备份 ---------- */
+function exportBackup(){
+  const blob = new Blob([JSON.stringify(db)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'yuezhan-backup-'+new Date().toISOString().slice(0,10)+'.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+function importBackup(input){
+  const f = input.files[0]; if (!f) return;
+  const r = new FileReader();
+  r.onload = ()=>{
+    try {
+      const data = JSON.parse(r.result);
+      if (!Array.isArray(data.books) || !Array.isArray(data.cats)) throw new Error('格式不对');
+      if (!confirm(`将导入 ${data.books.length} 本书和 ${data.cats.length} 个分类，覆盖当前数据？`)) return;
+      db = {cats:data.cats, books:data.books, activeCat:'all', sort:'added'};
+      renderAll();
+    } catch(e){ alert('备份文件解析失败：'+(e.message||e)); }
+    input.value='';
+  };
+  r.readAsText(f);
+}
+
+/* ---------- 通用 ---------- */
+function closeModal(id){ document.getElementById(id).classList.remove('show'); }
+document.querySelectorAll('.modal-bg').forEach(m=>m.addEventListener('click',e=>{ if(e.target===m) m.classList.remove('show'); }));
+document.getElementById('searchInput').addEventListener('input', renderGrid);
+
+document.body.className = 'theme-'+(localStorage.getItem('yuezhan_theme')||'night');
+renderAll();
+</script>
+</body>
+</html>
