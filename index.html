@@ -66,6 +66,48 @@ button { cursor:pointer; }
   .grid { grid-template-columns:repeat(auto-fill,minmax(110px,1fr)); gap:12px; }
   .cover { height:100px; font-size:12px; }
 }
+/* ===== 手机版模式（body.mobile 时生效） ===== */
+body.mobile { padding-bottom:64px; }
+body.mobile .titlebar { padding:10px 14px; }
+body.mobile .titlebar .name { font-size:14px; font-weight:500; color:#e8e6e3; }
+body.mobile .layout { flex-direction:column; }
+body.mobile .sidebar { display:none; }
+body.mobile .main { padding:14px 16px 24px; }
+body.mobile .head { margin-bottom:14px; }
+body.mobile .head h2 { font-size:18px; }
+body.mobile .head-actions .btn { padding:8px 16px; font-size:13px; border-radius:10px; }
+body.mobile .grid { grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:16px; }
+body.mobile .book { padding:12px; }
+body.mobile .cover { height:150px; font-size:15px; }
+body.mobile .filters { overflow-x:auto; padding-bottom:4px; }
+body.mobile .chip { flex-shrink:0; padding:7px 16px; font-size:13px; }
+body.mobile #mBottomNav { display:flex; }
+body.mobile.reading #mBottomNav { display:none; }
+body.mobile #rTextWrap { display:flex !important; }
+body.mobile .rtop .btn[data-thm], body.mobile .rtop .btn:nth-child(5), body.mobile .rtop .btn:nth-child(6) { display:none; }
+body.mobile #mReaderBar { display:flex; }
+body.mobile .rpage { padding:16px 18px 90px; }
+body.mobile #rImgWrap { padding:12px 0 80px; }
+#mBottomNav { display:none; position:fixed; left:0; right:0; bottom:0; height:64px; background:#1e1e24ee; border-top:0.5px solid #3a3a42; z-index:40; align-items:stretch; }
+#mBottomNav .mnav { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; font-size:11px; color:#8a8886; background:none; border:none; }
+#mBottomNav .mnav.on { color:#7f9ae0; }
+#mBottomNav .mnav svg { width:22px; height:22px; fill:currentColor; }
+#mReaderBar { display:none; position:fixed; left:0; right:0; bottom:0; height:64px; background:#1e1e24ee; border-top:0.5px solid #3a3a42; z-index:40; align-items:center; padding:0 16px; gap:12px; }
+#mReaderBar .mnav { background:none; border:none; color:#c9c7c4; font-size:20px; padding:8px 12px; }
+#mReaderBar input[type=range] { flex:1; accent-color:#4a5aa8; }
+#mReaderBar .pnum { font-size:12px; color:#8a8886; white-space:nowrap; }
+.sheet { position:fixed; inset:0; background:#1a1a1f; z-index:45; display:none; flex-direction:column; padding:20px 20px 90px; overflow-y:auto; }
+.sheet.show { display:flex; }
+.sheet h3 { font-size:16px; font-weight:500; color:#f5f4f2; margin:12px 0 10px; }
+.sheet .sclose { position:absolute; top:18px; right:20px; background:none; border:none; color:#8a8886; font-size:18px; padding:6px; }
+.sheet .nav-item { padding:14px 16px; font-size:15px; border-radius:12px; }
+.sheet .nav-item.active { background:#31313a; }
+.sgrid { display:flex; flex-wrap:wrap; gap:10px; }
+.sgrid .btn { padding:10px 18px; font-size:13px; border-radius:10px; }
+body.theme-sepia .sheet, body.theme-sepia #mBottomNav, body.theme-sepia #mReaderBar { background:#f4ecd8ee; }
+body.theme-sepia .sheet h3, body.theme-sepia #mBottomNav .mnav.on, body.theme-sepia #mReaderBar .pnum { color:#5b4a32; }
+body.theme-green .sheet, body.theme-green #mBottomNav, body.theme-green #mReaderBar { background:#c7e2c4ee; }
+body.theme-green .sheet h3, body.theme-green #mBottomNav .mnav.on, body.theme-green #mReaderBar .pnum { color:#2e4a2e; }
 /* ===== 阅读视图 ===== */
 #reader { display:none; flex-direction:column; flex:1; min-height:0; background:#232329; }
 .rtop { display:flex; align-items:center; gap:12px; padding:12px 20px; border-bottom:0.5px solid #3a3a42; background:#1e1e24; flex-shrink:0; }
@@ -148,7 +190,50 @@ body.theme-green .btn.primary { background:#3b6d11; border-color:#3b6d11; color:
   <div class="rwrap" id="rImgWrap" style="display:none;flex-direction:column;align-items:center;padding:20px;overflow:auto;position:relative;-webkit-overflow-scrolling:touch;">
     <canvas id="rCanvas" style="max-width:100%;border-radius:8px;background:#000;transition:transform .2s;transform-origin:center top;"></canvas>
   </div>
+  <div id="mReaderBar">
+    <button class="mnav" onclick="jump(-1)">‹</button>
+    <input type="range" id="mSlider" min="1" max="1" value="1" oninput="sliderJump(this.value)">
+    <span class="pnum" id="mPnum">1 / 1</span>
+    <button class="mnav" onclick="jump(1)">›</button>
+  </div>
 </div>
+
+<div id="mBottomNav">
+  <button class="mnav on" data-tab="shelf" onclick="mTab('shelf')">
+    <svg viewBox="0 0 24 24"><path d="M4 4h7v16H4zM13 4h7v16h-7zM6 7h3v2H6zM15 7h3v2h-3z"/></svg>书架</button>
+  <button class="mnav" data-tab="cats" onclick="mTab('cats')">
+    <svg viewBox="0 0 24 24"><path d="M3 5h18v4H3zM3 11h10v4H3zM3 17h14v4H3z"/></svg>分类</button>
+  <button class="mnav" data-tab="me" onclick="mTab('me')">
+    <svg viewBox="0 0 24 24"><path d="M12 4a4 4 0 110 8 4 4 0 010-8zM4 20c0-4 4-6 8-6s8 2 8 6v1H4z"/></svg>我的</button>
+</div>
+
+<div class="sheet" id="catSheet">
+  <button class="sclose" onclick="closeSheet('catSheet')">✕</button>
+  <h3>分类</h3>
+  <div id="catSheetList"></div>
+</div>
+
+<div class="sheet" id="meSheet">
+  <button class="sclose" onclick="closeSheet('meSheet')">✕</button>
+  <h3>主题</h3>
+  <div class="sgrid">
+    <button class="btn" onclick="setTheme('sepia')">羊皮</button>
+    <button class="btn" onclick="setTheme('night')">暗夜</button>
+    <button class="btn" onclick="setTheme('green')">护眼</button>
+  </div>
+  <h3>数据</h3>
+  <div class="sgrid">
+    <button class="btn" onclick="exportBackup()">⬇ 导出备份</button>
+    <button class="btn" onclick="document.getElementById('backupInput').click()">⬆ 导入备份</button>
+  </div>
+  <h3>关于</h3>
+  <div class="sgrid">
+    <button class="btn" onclick="openBookModal()">+ 导入书籍</button>
+    <button class="btn" onclick="openCatModal()">+ 新建分类</button>
+  </div>
+  <p style="font-size:12px;color:#7a7a80;margin-top:16px">阅栈 YueZhan v1.6 · 阅读数据保存在本机浏览器</p>
+</div>
+<input type="file" id="backupInput" accept=".json" style="display:none" onchange="importBackup(this)">
 
 <div class="modal-bg" id="catModal">
   <div class="modal">
@@ -226,7 +311,7 @@ function renderSidebar(){
   }
   html += '<div class="nav-item add-cat" onclick="openCatModal()">+ 新建分类</div><h3 style="margin-top:20px">视图</h3>';
   html += `<div class="nav-item ${db.activeCat==='unread'?'active':''}" onclick="setCat('unread')">未读完 <span class="cnt">${db.books.filter(b=>b.progress<100).length}</span></div>`;
-  html += '<h3 style="margin-top:20px">数据</h3><div class="nav-item" onclick="exportBackup()">⬇ 导出备份</div><div class="nav-item" onclick="document.getElementById(\'backupInput\').click()">⬆ 导入备份</div><input type="file" id="backupInput" accept=".json" style="display:none" onchange="importBackup(this)">';
+  html += '<h3 style="margin-top:20px">数据</h3><div class="nav-item" onclick="exportBackup()">⬇ 导出备份</div><div class="nav-item" onclick="document.getElementById(\'backupInput\').click()">⬆ 导入备份</div>';
   el.innerHTML = html;
 }
 
@@ -430,6 +515,7 @@ const PAGE_CHARS = 1200;
 let imgPdf = null;
 async function openReader(id){
   const b = db.books.find(x=>x.id===id); if (!b) return;
+  document.body.classList.add('reading');
   document.getElementById('rTitle').textContent = b.title + ' · ' + (b.author||'佚名');
   document.getElementById('library').style.display='none';
   document.getElementById('reader').style.display='flex';
@@ -469,6 +555,9 @@ async function gotoPage(p){
     document.getElementById('rContent').textContent = b.content.slice(readerState.page*PAGE_CHARS,(readerState.page+1)*PAGE_CHARS);
     document.getElementById('rPage').textContent = `${readerState.page+1} / ${pages}`;
   }
+  const sl = document.getElementById('mSlider');
+  sl.max = pages; sl.value = readerState.page+1;
+  document.getElementById('mPnum').textContent = `${readerState.page+1} / ${pages}`;
   save();
 }
 function jump(d){ if(!readerState) return; gotoPage(readerState.page+d); }
@@ -480,6 +569,7 @@ document.addEventListener('keydown', e=>{
   }
 });
 function backToLibrary(){
+  document.body.classList.remove('reading');
   document.getElementById('reader').style.display='none';
   document.getElementById('library').style.display='flex';
   readerState=null; renderAll();
@@ -487,14 +577,14 @@ function backToLibrary(){
 /* ---------- 移动端手势：滑动翻页 + 点按翻页 ---------- */
 let tX=0, tY=0, tT=0, tMoved=false;
 document.getElementById('reader').addEventListener('touchstart', e=>{
-  if (e.touches.length!==1) return;
+  if (e.target.closest('#mReaderBar') || e.touches.length!==1) return;
   tX=e.touches[0].clientX; tY=e.touches[0].clientY; tT=Date.now(); tMoved=false;
 }, {passive:true});
 document.getElementById('reader').addEventListener('touchmove', e=>{
   if (Math.abs(e.touches[0].clientX-tX)>10 || Math.abs(e.touches[0].clientY-tY)>10) tMoved=true;
 }, {passive:true});
 document.getElementById('reader').addEventListener('touchend', e=>{
-  if (Date.now()-tT>800) return;
+  if (e.target.closest('#mReaderBar') || Date.now()-tT>800) return;
   const dx=e.changedTouches[0].clientX-tX, dy=e.changedTouches[0].clientY-tY;
   if (Math.abs(dx)>50 && Math.abs(dx)>Math.abs(dy)*1.5 && !imgMode()){ jump(dx<0?1:-1); return; }
   if (!tMoved && Math.abs(dx)<12 && Math.abs(dy)<12 && readerState){
@@ -551,6 +641,26 @@ function importBackup(input){
   };
   r.readAsText(f);
 }
+
+/* ---------- 手机版模式 ---------- */
+const IS_MOBILE = window.matchMedia('(max-width: 760px)').matches;
+if (IS_MOBILE) document.body.classList.add('mobile');
+function mTab(tab){
+  document.querySelectorAll('#mBottomNav .mnav').forEach(b=>b.classList.toggle('on', b.dataset.tab===tab));
+  if (tab==='shelf'){ closeSheet('catSheet'); closeSheet('meSheet'); setCat('all'); }
+  if (tab==='cats'){
+    const list = document.getElementById('catSheetList');
+    let html = `<div class="nav-item ${db.activeCat==='all'?'active':''}" onclick="mPickCat('all')">📚 全部书籍</div>`;
+    db.cats.forEach(c=>{ html += `<div class="nav-item ${db.activeCat===c.id?'active':''}" onclick="mPickCat('${c.id}')"><span class="swatch" style="background:${c.color}"></span>${c.name}</div>`; });
+    html += `<div class="nav-item ${db.activeCat==='unread'?'active':''}" onclick="mPickCat('unread')">未读完</div><div class="nav-item ${db.activeCat==='recent'?'active':''}" onclick="mPickCat('recent')">最近阅读</div><div class="nav-item add-cat" onclick="closeSheet('catSheet');openCatModal()">+ 新建分类</div>`;
+    list.innerHTML = html;
+    document.getElementById('catSheet').classList.add('show');
+  }
+  if (tab==='me') document.getElementById('meSheet').classList.add('show');
+}
+function mPickCat(id){ closeSheet('catSheet'); setCat(id); }
+function closeSheet(id){ document.getElementById(id).classList.remove('show'); }
+function sliderJump(v){ if (readerState && readerState.page !== v-1) gotoPage(Number(v)-1); }
 
 /* ---------- 通用 ---------- */
 function closeModal(id){ document.getElementById(id).classList.remove('show'); }
