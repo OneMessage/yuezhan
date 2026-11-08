@@ -49,6 +49,23 @@ button { cursor:pointer; }
 .bdel { position:absolute; top:8px; right:8px; background:rgba(0,0,0,.45); border:none; color:#c9c7c4; width:22px; height:22px; border-radius:6px; font-size:12px; opacity:0; transition:opacity .15s; }
 .book:hover .bdel { opacity:1; }
 .empty { text-align:center; color:#7a7a80; padding:60px 0; font-size:13px; }
+/* ===== 移动端适配 ===== */
+@media (max-width: 760px){
+  .layout { flex-direction:column; }
+  .sidebar { width:100%; display:flex; overflow-x:auto; padding:10px; gap:6px; align-items:center; border-bottom:0.5px solid #3a3a42; }
+  .sidebar h3 { display:none; }
+  .nav-item { white-space:nowrap; margin-bottom:0; padding:7px 12px; flex-shrink:0; }
+  .del-cat { display:none; }
+  .main { padding:16px; }
+  .head { flex-wrap:wrap; }
+  .search { width:100%; order:3; }
+  .head-actions { margin-left:auto; }
+  .rtop { flex-wrap:wrap; gap:6px; padding:10px 12px; }
+  .rtop .rt { min-width:100%; }
+  .rpage { padding:20px 16px 60px; }
+  .grid { grid-template-columns:repeat(auto-fill,minmax(110px,1fr)); gap:12px; }
+  .cover { height:100px; font-size:12px; }
+}
 /* ===== 阅读视图 ===== */
 #reader { display:none; flex-direction:column; flex:1; min-height:0; background:#232329; }
 .rtop { display:flex; align-items:center; gap:12px; padding:12px 20px; border-bottom:0.5px solid #3a3a42; background:#1e1e24; flex-shrink:0; }
@@ -118,9 +135,9 @@ body.theme-green .btn.primary { background:#3b6d11; border-color:#3b6d11; color:
   <div class="rtop">
     <button class="btn" onclick="backToLibrary()">← 书架</button>
     <div class="rt" id="rTitle"></div>
-    <button class="btn" onclick="jump(-1)">上一页</button>
-    <span id="rPage" style="font-size:12px;color:#8a8886"></span>
-    <button class="btn" onclick="jump(1)">下一页</button>
+    <button class="btn" onclick="jump(-1)">‹</button>
+    <span id="rPage" style="font-size:12px;color:#8a8886;white-space:nowrap"></span>
+    <button class="btn" onclick="jump(1)">›</button>
     <button class="btn" onclick="setFont(-1)">A-</button>
     <button class="btn" onclick="setFont(1)">A+</button>
     <button class="btn" data-thm="sepia" onclick="setTheme('sepia')">羊皮</button>
@@ -128,8 +145,8 @@ body.theme-green .btn.primary { background:#3b6d11; border-color:#3b6d11; color:
     <button class="btn" data-thm="green" onclick="setTheme('green')">护眼</button>
   </div>
   <div class="rwrap" id="rTextWrap"><div class="rpage" id="rContent"></div></div>
-  <div class="rwrap" id="rImgWrap" style="display:none;flex-direction:column;align-items:center;padding:20px;overflow:auto;">
-    <canvas id="rCanvas" style="max-width:100%;border-radius:8px;background:#000"></canvas>
+  <div class="rwrap" id="rImgWrap" style="display:none;flex-direction:column;align-items:center;padding:20px;overflow:auto;position:relative;-webkit-overflow-scrolling:touch;">
+    <canvas id="rCanvas" style="max-width:100%;border-radius:8px;background:#000;transition:transform .2s;transform-origin:center top;"></canvas>
   </div>
 </div>
 
@@ -467,6 +484,39 @@ function backToLibrary(){
   document.getElementById('library').style.display='flex';
   readerState=null; renderAll();
 }
+/* ---------- 移动端手势：滑动翻页 + 点按翻页 ---------- */
+let tX=0, tY=0, tT=0, tMoved=false;
+document.getElementById('reader').addEventListener('touchstart', e=>{
+  if (e.touches.length!==1) return;
+  tX=e.touches[0].clientX; tY=e.touches[0].clientY; tT=Date.now(); tMoved=false;
+}, {passive:true});
+document.getElementById('reader').addEventListener('touchmove', e=>{
+  if (Math.abs(e.touches[0].clientX-tX)>10 || Math.abs(e.touches[0].clientY-tY)>10) tMoved=true;
+}, {passive:true});
+document.getElementById('reader').addEventListener('touchend', e=>{
+  if (Date.now()-tT>800) return;
+  const dx=e.changedTouches[0].clientX-tX, dy=e.changedTouches[0].clientY-tY;
+  if (Math.abs(dx)>50 && Math.abs(dx)>Math.abs(dy)*1.5 && !imgMode()){ jump(dx<0?1:-1); return; }
+  if (!tMoved && Math.abs(dx)<12 && Math.abs(dy)<12 && readerState){
+    const w = window.innerWidth;
+    const x = e.changedTouches[0].clientX;
+    if (x < w*0.3) jump(-1);
+    else if (x > w*0.7) jump(1);
+  }
+});
+function imgMode(){ return !!(readerState && readerState.img); }
+/* 图片模式双击缩放 */
+let lastTap=0, zoomed=false;
+document.getElementById('rImgWrap').addEventListener('touchend', e=>{
+  const now=Date.now();
+  if (now-lastTap<300){
+    const c=document.getElementById('rCanvas');
+    zoomed=!zoomed;
+    c.style.transform=zoomed?'scale(2)':'scale(1)';
+    document.getElementById('rImgWrap').style.overflow=zoomed?'auto':'hidden';
+  }
+  lastTap=now;
+});
 let fontSize=17;
 function setFont(d){
   fontSize=Math.max(13,Math.min(26,fontSize+d));
